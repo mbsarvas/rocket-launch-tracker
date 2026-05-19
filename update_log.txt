@@ -2,7 +2,17 @@ Rocket Launch Tracker — Update Log
 Created by Matthew Sarvas
 ====================================
 
-Version 1.1 — May 18, 2026
+Version 1.1.2 — May 19, 2026
+------------------------------
+- Replaced hardcoded username paths with a single PI_USER variable
+- Script is now portable — only PI_USER needs to be changed for a new Pi
+- GITHUB_RAW_URL updated to point to the correct repository automatically
+- README updated throughout to use YOUR_USERNAME placeholders
+- README install guide now includes a highlighted note to set PI_USER before running
+- Systemd service file in README updated to use YOUR_USERNAME placeholder
+
+
+Version 1.1.0 — May 18, 2026
 ------------------------------
 - Added auto-update system that checks GitHub every 24 hours for a new version
 - When an update is found, the script downloads and applies it automatically then restarts
@@ -14,7 +24,8 @@ Version 1.1 — May 18, 2026
 - GPIO bouncetime increased from 300ms to 500ms for more reliable button detection
 - Garbled LCD characters on rapid button press are now prevented
 
-Version 1.0 — April 30, 2026
+
+Version 1.0.0 — April 30, 2026
 ------------------------------
 - Initial release
 - Displays next 3 upcoming rocket launches across 6 I2C LCD displays

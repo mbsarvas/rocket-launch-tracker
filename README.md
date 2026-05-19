@@ -80,6 +80,12 @@ Each numbered slot pairs one 16x2 with one 20x4 to show the same launch:
 
 ## Installation
 
+> **Before you begin:** Open `rocket_launch_tracker.py` and set the `PI_USER` variable at the top to match your Pi username:
+> ```python
+> PI_USER = "pi"   # change this to your username, e.g. "mbsarvas"
+> ```
+> You can find your username by running `whoami` in the terminal.
+
 ### 1. Enable I2C on the Pi
 
 ```bash
@@ -100,10 +106,10 @@ You should see addresses `0x22` through `0x27` appear in the grid.
 ### 3. Clone the repository
 
 ```bash
-cd /home/pi
-git clone https://github.com/YOUR_USERNAME/rocket-launch-tracker.git
-cd rocket-launch-tracker
+cd /home/YOUR_USERNAME
+git clone https://github.com/mbsarvas/rocket-launch-tracker.git
 ```
+> Replace `YOUR_USERNAME` with your Pi's username. You can check it by running `whoami`.
 
 ### 4. Install dependencies
 
@@ -139,15 +145,16 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/rocket-launch-tracker
-ExecStart=/usr/bin/python3 /home/pi/rocket-launch-tracker/rocket_launch_tracker.py
+User=YOUR_USERNAME
+WorkingDirectory=/home/YOUR_USERNAME
+ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/rocket_launch_tracker.py
 Restart=always
 RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
+> Replace `YOUR_USERNAME` with your Pi's username (e.g. `pi`, `mbsarvas`). You can check it by running `whoami` in the terminal.
 
 ### 2. Enable and start the service
 
@@ -220,7 +227,8 @@ The following constants at the top of `rocket_launch_tracker.py` can be adjusted
 | `TOTAL_SLOTS` | 3 | Number of launch slots to display |
 | `BUTTON_PIN` | 27 | GPIO pin number for the toggle button |
 | `API_KEY_FILE` | `/home/pi/ll2_api_key.txt` | Path to API key file |
-| `GITHUB_RAW_URL` | *(your repo URL)* | URL to raw script on GitHub for auto-updates |
+| `PI_USER` | `"pi"` | Your Pi username — update this before running |
+| `GITHUB_RAW_URL` | *(set automatically)* | URL to raw script on GitHub for auto-updates |
 | `UPDATE_INTERVAL` | 86400 | Seconds between update checks (default: 24 hours) |
 
 You can also override the refresh interval at runtime:
@@ -237,13 +245,15 @@ The script checks GitHub once every 24 hours for a newer version. If a new versi
 
 ### Setup
 
-**1. Set your GitHub URL in the script**
+**1. Set your Pi username in the script**
 
-Open `rocket_launch_tracker.py` and update this constant with your actual GitHub username and repo name:
+Open `rocket_launch_tracker.py` and set the `PI_USER` variable to match your Pi's username:
 
 ```python
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/rocket-launch-tracker/main/rocket_launch_tracker.py"
+PI_USER = "pi"   # change this to your username
 ```
+
+The `GITHUB_RAW_URL` is already set to the correct repository and does not need to be changed.
 
 **2. Allow the Pi to restart its own service without a password**
 
@@ -256,15 +266,16 @@ sudo visudo
 Add this line at the bottom (replace `pi` with your username):
 
 ```
-pi ALL=(ALL) NOPASSWD: /bin/systemctl restart rockettracker
+YOUR_USERNAME ALL=(ALL) NOPASSWD: /bin/systemctl restart rockettracker
 ```
+> Replace `YOUR_USERNAME` with your Pi's username.
 
 Save and exit.
 
 **3. Publishing an update**
 
 When you want to push a new version to all Pis:
-1. Increment `SCRIPT_VERSION` in the script (e.g. `"1.1"` → `"1.2"`)
+1. Increment `SCRIPT_VERSION` in the script (e.g. `"1.1.2"` → `"1.1.3"`)
 2. Upload the new script to GitHub
 3. Within 24 hours the Pi will detect the new version, download it, and restart automatically
 
@@ -272,7 +283,7 @@ The displays will show the update progress:
 ```
 20x4:
 Update Found!
-v1.1 -> v1.2
+v1.1.2 -> v1.1.3
 Downloading...
 Restarting soon
 ```

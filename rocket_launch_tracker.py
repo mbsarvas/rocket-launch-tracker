@@ -1,8 +1,8 @@
 """
 Rocket Launch Tracker — Multi-Display Edition
 Raspberry Pi Zero W | Python 3.13
-Version 1.1
-Date: May 18, 2026
+Version 1.1.2
+Date: May 19, 2026
 Created by Matthew Sarvas
 
 Display layout:
@@ -78,13 +78,18 @@ API_BASE         = "https://ll.thespacedevs.com/2.0.0"
 REFRESH_INTERVAL_ANON = 300  # anonymous: 15 req/hour → 1 per 4 min (300s)
 REFRESH_INTERVAL_AUTH = 60   # authenticated: 60 req/hour → 1 per 60s
 BUTTON_PIN       = 27    # GPIO pin for the Vandenberg filter toggle button
-API_KEY_FILE     = "/home/mbsarvas/ll2_api_key.txt"  # put your API key in this file
+
+# ── User configuration ─────────────────────────────────────────────────────────
+# !! UPDATE THIS to match your Pi's username !!
+# e.g. if your username is "pi", set PI_USER = "pi"
+PI_USER          = "pi"
+API_KEY_FILE     = f"/home/{PI_USER}/ll2_api_key.txt"
+SCRIPT_PATH      = f"/home/{PI_USER}/rocket_launch_tracker.py"
 
 # ── Auto-update settings ───────────────────────────────────────────────────────
-SCRIPT_VERSION   = "1.1"
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/rocket_launch_tracker.py"
+SCRIPT_VERSION   = "1.1.2"
+GITHUB_RAW_URL   = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/rocket_launch_tracker.py"
 UPDATE_INTERVAL  = 86400   # seconds between update checks (86400 = 24 hours)
-SCRIPT_PATH      = "/home/mbsarvas/rocket_launch_tracker.py"
 
 # ── API key ──────────────────────────────────────────────────────────────────
 
@@ -599,7 +604,7 @@ def show_startup(lcds_16: list, lcds_20: list) -> None:
     for e in lcds_20:
         write_lines(e["lcd"], [
             center("Rocket Launch", 20),
-            center("Tracker v1.1", 20),
+            center("Tracker v1.1.2", 20),
             center("By Matthew Sarvas", 20),
             center("Fetching data...", 20),
         ], 20)
