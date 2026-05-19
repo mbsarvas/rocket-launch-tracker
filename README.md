@@ -1,4 +1,4 @@
-# 🚀 Rocket Launch Tracker 1.0 (rocket-launch-tracker-1.0)
+# 🚀 Rocket Launch Tracker
 
 A Raspberry Pi Zero W project that displays upcoming rocket launches in real time across six I2C LCD displays, powered by the [Launch Library 2 API](https://thespacedevs.com/llapi).
 
@@ -12,11 +12,7 @@ A Raspberry Pi Zero W project that displays upcoming rocket launches in real tim
 - Three **16x2 LCDs** show the launch site and country for each launch
 - Three **20x4 LCDs** show the mission name, rocket, date, and time (Pacific Time) for each launch
 - Automatically converts launch times to PST or PDT
-- No API is reqired, however acquiring one will allow for a higher data fetch rate, instructions for this below
 - Physical button to toggle between all launches and Vandenberg SFB launches only
-    - Each time this button is pressed the display must fetch new data
-    - Without an API the data will still work but is limited to a certain number times per hour
-    - For this reason, I have only added one location (Vandenburg) to filter, I may add more in future verions
 - Live countdown timer on displays when the API rate limit is reached
 - Auto-refreshes every 60 seconds (with API key) or 5 minutes (anonymous)
 - Automatically runs on boot via systemd
@@ -31,12 +27,6 @@ A Raspberry Pi Zero W project that displays upcoming rocket launches in real tim
 - 3x 20x4 I2C LCD displays (PCF8574 backpack)
 - 1x momentary push button
 - Jumper wires
-
----
-
-## 3D Printed Frame/Enclosure
-
-- I am working on creating a 3D printable frame for the LCD Displays, but feel free to create your own!
 
 ---
 
@@ -111,7 +101,7 @@ You should see addresses `0x22` through `0x27` appear in the grid.
 
 ```bash
 cd /home/pi
-git clone https://github.com/mbsarvas/rocket-launch-tracker.git
+git clone https://github.com/YOUR_USERNAME/rocket-launch-tracker.git
 cd rocket-launch-tracker
 ```
 
@@ -198,7 +188,7 @@ By default the script uses anonymous access to the Launch Library 2 API, which a
 To get a higher rate limit (60 requests/hour, one refresh per minute):
 
 1. Support [TheSpaceDevs on Patreon](https://www.patreon.com/TheSpaceDevs) at any paid tier
-2. Receive your API key
+2. Receive your API key via Patreon message or their Discord
 3. Save the key to a plain text file on the Pi:
 
 ```bash
@@ -230,12 +220,67 @@ The following constants at the top of `rocket_launch_tracker.py` can be adjusted
 | `TOTAL_SLOTS` | 3 | Number of launch slots to display |
 | `BUTTON_PIN` | 27 | GPIO pin number for the toggle button |
 | `API_KEY_FILE` | `/home/pi/ll2_api_key.txt` | Path to API key file |
+| `GITHUB_RAW_URL` | *(your repo URL)* | URL to raw script on GitHub for auto-updates |
+| `UPDATE_INTERVAL` | 86400 | Seconds between update checks (default: 24 hours) |
 
 You can also override the refresh interval at runtime:
 
 ```bash
 python3 rocket_launch_tracker.py --refresh 120
 ```
+
+---
+
+## Auto-Update
+
+The script checks GitHub once every 24 hours for a newer version. If a new version is found it downloads it, replaces the local script, and restarts the systemd service automatically — no manual intervention needed.
+
+### Setup
+
+**1. Set your GitHub URL in the script**
+
+Open `rocket_launch_tracker.py` and update this constant with your actual GitHub username and repo name:
+
+```python
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/YOUR_USERNAME/rocket-launch-tracker/main/rocket_launch_tracker.py"
+```
+
+**2. Allow the Pi to restart its own service without a password**
+
+The restart command requires sudo. Add a passwordless sudoers rule so the script can restart itself:
+
+```bash
+sudo visudo
+```
+
+Add this line at the bottom (replace `pi` with your username):
+
+```
+pi ALL=(ALL) NOPASSWD: /bin/systemctl restart rockettracker
+```
+
+Save and exit.
+
+**3. Publishing an update**
+
+When you want to push a new version to all Pis:
+1. Increment `SCRIPT_VERSION` in the script (e.g. `"1.1"` → `"1.2"`)
+2. Upload the new script to GitHub
+3. Within 24 hours the Pi will detect the new version, download it, and restart automatically
+
+The displays will show the update progress:
+```
+20x4:
+Update Found!
+v1.1 -> v1.2
+Downloading...
+Restarting soon
+```
+
+### Notes
+- The update check only runs if the Pi has internet access
+- If the download fails, the script logs the error and continues running the current version
+- The old script is replaced atomically (via a temp file) so a failed download never corrupts the running script
 
 ---
 
