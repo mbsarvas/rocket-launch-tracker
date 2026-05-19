@@ -82,7 +82,7 @@ Each numbered slot pairs one 16x2 with one 20x4 to show the same launch:
 
 > **Before you begin:** Open `rocket_launch_tracker.py` and set the `PI_USER` variable at the top to match your Pi username:
 > ```python
-> PI_USER = "pi"   # change this to your username, e.g. "mbsarvas"
+> PI_USER = "pi"   # change this to your username
 > ```
 > You can find your username by running `whoami` in the terminal.
 
