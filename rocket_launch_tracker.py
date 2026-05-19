@@ -82,7 +82,7 @@ API_KEY_FILE     = "/home/mbsarvas/ll2_api_key.txt"  # put your API key in this 
 
 # ── Auto-update settings ───────────────────────────────────────────────────────
 SCRIPT_VERSION   = "1.1"
-GITHUB_RAW_URL = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker-1.0/main/rocket_launch_tracker.py"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/rocket_launch_tracker.py"
 UPDATE_INTERVAL  = 86400   # seconds between update checks (86400 = 24 hours)
 SCRIPT_PATH      = "/home/mbsarvas/rocket_launch_tracker.py"
 
