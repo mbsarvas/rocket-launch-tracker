@@ -1,8 +1,8 @@
 """
 Rocket Launch Tracker — Multi-Display Edition
 Raspberry Pi Zero W | Python 3.13
-Version 1.0
-Date: April 30, 2026
+Version 1.1
+Date: May 18, 2026
 Created by Matthew Sarvas
 
 Display layout:
@@ -31,6 +31,8 @@ Run:
 """
 
 import argparse
+import os
+import subprocess
 import time
 import sys
 import threading
@@ -70,12 +72,19 @@ LCD_20x4_CONFIGS = [
     {"address": 0x25, "slot": 2},
 ]
 
-TOTAL_SLOTS      = 3     # number of launch slots (one per display pair)
+TOTAL_SLOTS      = 3     # number of launch slots shown at once (one per display pair)
+FETCH_COUNT      = 20    # how many launches to cache locally (used for local filtering)
 API_BASE         = "https://ll.thespacedevs.com/2.0.0"
 REFRESH_INTERVAL_ANON = 300  # anonymous: 15 req/hour → 1 per 4 min (300s)
 REFRESH_INTERVAL_AUTH = 60   # authenticated: 60 req/hour → 1 per 60s
 BUTTON_PIN       = 27    # GPIO pin for the Vandenberg filter toggle button
 API_KEY_FILE     = "/home/mbsarvas/ll2_api_key.txt"  # put your API key in this file
+
+# ── Auto-update settings ───────────────────────────────────────────────────────
+SCRIPT_VERSION   = "1.1"
+GITHUB_RAW_URL = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker-1.0/main/rocket_launch_tracker.py"
+UPDATE_INTERVAL  = 86400   # seconds between update checks (86400 = 24 hours)
+SCRIPT_PATH      = "/home/mbsarvas/rocket_launch_tracker.py"
 
 # ── API key ──────────────────────────────────────────────────────────────────
 
@@ -96,6 +105,92 @@ def load_api_key() -> str | None:
     except Exception as e:
         print(f"[WARNING] Could not read API key file: {e}")
     return None
+
+
+# ── Auto-updater ─────────────────────────────────────────────────────────────
+
+def get_remote_version(url: str) -> str | None:
+    """
+    Fetch the remote script and extract its version number from the
+    'SCRIPT_VERSION = "x.x"' line. Returns the version string or None.
+    """
+    try:
+        resp = requests.get(url, timeout=15)
+        resp.raise_for_status()
+        for line in resp.text.splitlines():
+            if line.strip().startswith("SCRIPT_VERSION"):
+                # e.g.  SCRIPT_VERSION   = "1.1"
+                parts = line.split("=", 1)
+                if len(parts) == 2:
+                    return parts[1].strip().strip('"').strip("'")
+    except Exception as e:
+        print(f"[UPDATE] Could not fetch remote version: {e}")
+    return None
+
+
+def check_and_apply_update(lcds_16: list, lcds_20: list) -> None:
+    """
+    Compare remote version against SCRIPT_VERSION.
+    If a newer version is found, download the new script, replace this file,
+    and restart via systemd so the new version takes over cleanly.
+    """
+    print(f"[UPDATE] Checking for updates (current version: {SCRIPT_VERSION})...")
+    remote_ver = get_remote_version(GITHUB_RAW_URL)
+
+    if remote_ver is None:
+        print("[UPDATE] Could not determine remote version — skipping.")
+        return
+
+    if remote_ver == SCRIPT_VERSION:
+        print(f"[UPDATE] Already up to date (v{SCRIPT_VERSION}).")
+        return
+
+    print(f"[UPDATE] New version found: v{remote_ver}. Downloading...")
+
+    # Show update message on all displays
+    for entry in lcds_16:
+        write_lines(entry["lcd"], [
+            pad("Updating...", 16),
+            pad(f"v{SCRIPT_VERSION}->v{remote_ver}", 16),
+        ], 16)
+    for entry in lcds_20:
+        write_lines(entry["lcd"], [
+            pad("Update Found!", 20),
+            pad(f"v{SCRIPT_VERSION} -> v{remote_ver}", 20),
+            pad("Downloading...", 20),
+            pad("Restarting soon", 20),
+        ], 20)
+
+    try:
+        resp = requests.get(GITHUB_RAW_URL, timeout=20)
+        resp.raise_for_status()
+        new_script = resp.text
+
+        # Write new script to a temp file first, then atomically replace
+        tmp_path = SCRIPT_PATH + ".tmp"
+        with open(tmp_path, "w") as f:
+            f.write(new_script)
+        os.replace(tmp_path, SCRIPT_PATH)
+        print(f"[UPDATE] Script updated to v{remote_ver}. Restarting service...")
+
+        # Restart via systemd — this process will be killed and relaunched cleanly
+        subprocess.run(["sudo", "systemctl", "restart", "rockettracker"], check=False)
+
+    except Exception as e:
+        print(f"[UPDATE] Update failed: {e}")
+        for entry in lcds_16:
+            write_lines(entry["lcd"], [
+                pad("Update Failed", 16),
+                pad("See terminal", 16),
+            ], 16)
+        for entry in lcds_20:
+            write_lines(entry["lcd"], [
+                pad("Update Failed!", 20),
+                pad(str(e)[:20],     20),
+                pad("Continuing...", 20),
+                pad("",              20),
+            ], 20)
+        time.sleep(3)
 
 
 # ── Timezone helpers ──────────────────────────────────────────────────────────
@@ -231,12 +326,18 @@ COUNTRY_NAMES = {
 
 # ── API ───────────────────────────────────────────────────────────────────────
 
-def _do_fetch(page_limit: int, headers: dict) -> tuple[list | None, int | None]:
+# Sentinel values returned by _do_fetch for error states
+_ERR_NO_INTERNET = "no_internet"
+_ERR_OTHER       = "other_error"
+
+def _do_fetch(page_limit: int, headers: dict):
     """
     Make a single request to the API.
-    Returns (raw_list, None) on success,
-            ([], retry_after) on 429 rate limit,
-            (None, None) on other errors.
+    Returns:
+        (raw_list, None)           on success
+        ([],       retry_after)    on 429 rate limit (retry_after = seconds)
+        (_ERR_NO_INTERNET, None)   on connection error
+        (_ERR_OTHER,       None)   on timeout or other HTTP error
     """
     import re
     try:
@@ -260,13 +361,16 @@ def _do_fetch(page_limit: int, headers: dict) -> tuple[list | None, int | None]:
         return resp.json().get("results", []), None
     except requests.exceptions.ConnectionError:
         print("[ERROR] No internet connection.")
+        return _ERR_NO_INTERNET, None
     except requests.exceptions.Timeout:
         print("[ERROR] Request timed out.")
+        return _ERR_OTHER, None
     except requests.exceptions.HTTPError as e:
         print(f"[ERROR] HTTP {e.response.status_code}")
+        return _ERR_OTHER, None
     except Exception as e:
         print(f"[ERROR] {e}")
-    return None, None
+        return _ERR_OTHER, None
 
 
 def fetch_launches(count: int, vandenberg_only: bool = False) -> tuple[list[dict], int | None]:
@@ -277,8 +381,9 @@ def fetch_launches(count: int, vandenberg_only: bool = False) -> tuple[list[dict
     Tries authenticated access first (if an API key file exists), then
     falls back to anonymous access automatically if the key fails.
 
-    Returns (launches, retry_after) where retry_after is seconds to wait
-    if the API is rate-limited (429), or None if no throttle.
+    Returns (launches, retry_after, no_internet) where:
+        retry_after  = seconds to wait if rate-limited (429), else None
+        no_internet  = True if a connection error occurred
     """
     now_utc    = datetime.now(timezone.utc)
     page_limit = 50 if vandenberg_only else 20
@@ -290,23 +395,27 @@ def fetch_launches(count: int, vandenberg_only: bool = False) -> tuple[list[dict
         attempts.append(("authenticated", {"Authorization": f"Token {api_key}"}))
     attempts.append(("anonymous", {}))
 
-    raw_list     = None
-    retry_after  = None
+    raw_list    = None
+    retry_after = None
+    no_internet = False
 
     for label, headers in attempts:
         print(f"  Trying {label} API access...")
         raw_list, retry_after = _do_fetch(page_limit, headers)
 
         if retry_after is not None:
-            # Rate limited — no point trying anonymous if authenticated was limited,
-            # and vice versa; surface the error immediately
             print(f"[ERROR] Rate limited ({label}). Retry in {retry_after}s.")
-            return [], retry_after
+            return [], retry_after, False
 
-        if raw_list is None:
-            # Network or HTTP error — try next method if available
+        if raw_list is _ERR_NO_INTERNET:
+            no_internet = True
+            print(f"  [ERROR] No internet connection.")
+            break   # no point retrying other auth methods without internet
+
+        if raw_list is _ERR_OTHER:
             if label == "authenticated":
                 print(f"  [WARNING] Authenticated request failed, falling back to anonymous.")
+            raw_list = None
             continue
 
         # Success
@@ -316,8 +425,11 @@ def fetch_launches(count: int, vandenberg_only: bool = False) -> tuple[list[dict
             print(f"  ✓ Using anonymous access.")
         break
 
-    if raw_list is None:
-        return [], None
+    if no_internet:
+        return [], None, True
+
+    if raw_list is None or raw_list in (_ERR_NO_INTERNET, _ERR_OTHER):
+        return [], None, False
 
     # Filter to future launches (and optionally Vandenberg only)
     results = []
@@ -343,7 +455,7 @@ def fetch_launches(count: int, vandenberg_only: bool = False) -> tuple[list[dict
         except Exception:
             continue
 
-    return results, None
+    return results, None, False
 
 
 def parse_launch(raw: dict) -> dict:
@@ -487,7 +599,7 @@ def show_startup(lcds_16: list, lcds_20: list) -> None:
     for e in lcds_20:
         write_lines(e["lcd"], [
             center("Rocket Launch", 20),
-            center("Tracker v1.0", 20),
+            center("Tracker v1.1", 20),
             center("By Matthew Sarvas", 20),
             center("Fetching data...", 20),
         ], 20)
@@ -551,17 +663,27 @@ def main():
     show_startup(lcds_16, lcds_20)
 
     # ── Button setup ──────────────────────────────────────────────────────────
-    vandenberg_only = False
-    filter_lock     = threading.Lock()
-    last_fetch      = 0
-    launches        = []
+    vandenberg_only    = False
+    filter_lock        = threading.Lock()
+    last_fetch         = 0
+    all_launches       = []   # full cache fetched from API (up to FETCH_COUNT)
+    last_update_check  = 0    # timestamp of last GitHub update check
+    last_button_time   = 0.0      # timestamp of last accepted press
+    BUTTON_DEBOUNCE_S  = 1.0      # ignore any press within this many seconds of the last
 
     def on_button_press(channel):
-        nonlocal vandenberg_only, last_fetch
+        nonlocal vandenberg_only, last_button_time
+
+        # Software debounce — reject rapid/held presses beyond GPIO bouncetime
+        now_t = time.time()
+        if now_t - last_button_time < BUTTON_DEBOUNCE_S:
+            return
+        last_button_time = now_t
+
         with filter_lock:
             vandenberg_only = not vandenberg_only
             mode = "Vandenberg only" if vandenberg_only else "All locations"
-            print(f"\n[BUTTON] Filter toggled -> {mode}")
+            print(f"\n[BUTTON] Filter toggled -> {mode} (using cached data, no API call)")
             for entry in lcds_16:
                 write_lines(entry["lcd"],
                             [pad("Filter:", 16), pad(mode, 16)], 16)
@@ -569,16 +691,17 @@ def main():
                 write_lines(entry["lcd"], [
                     pad("Filter changed:", 20),
                     pad(mode,             20),
-                    pad("Fetching...",    20),
+                    pad("Updating...",    20),
                     pad("",              20),
                 ], 20)
-            last_fetch = 0   # force immediate re-fetch with new filter
+            # No last_fetch = 0 here — filter uses cached data, no API call needed
 
     if GPIO_AVAILABLE:
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        # bouncetime=500ms in GPIO + 1s software debounce = robust against held presses
         GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING,
-                              callback=on_button_press, bouncetime=300)
+                              callback=on_button_press, bouncetime=500)
         print(f"  Button on GPIO{BUTTON_PIN} ready — press to toggle Vandenberg filter.")
     else:
         print("  [WARNING] GPIO not available — button toggle disabled.")
@@ -591,12 +714,34 @@ def main():
             with filter_lock:
                 current_filter = vandenberg_only
 
-            # Refresh data if interval elapsed, first run, or filter just changed
-            if now - last_fetch >= refresh_interval or not launches:
+            # ── GitHub update check (every 24 hours) ───────────────────────────
+            if now - last_update_check >= UPDATE_INTERVAL:
+                last_update_check = time.time()
+                check_and_apply_update(lcds_16, lcds_20)
+
+            # ── API fetch (only on timer expiry, not on button press) ──────────
+            if now - last_fetch >= refresh_interval or not all_launches:
                 ts = datetime.now().strftime("%H:%M:%S")
-                mode_str = "Vandenberg only" if current_filter else "all locations"
-                print(f"\n[{ts}] Fetching {num_slots} launches ({mode_str})...")
-                raw_list, retry_after = fetch_launches(num_slots, vandenberg_only=current_filter)
+                print(f"\n[{ts}] Fetching {FETCH_COUNT} launches from API...")
+                raw_list, retry_after, no_internet = fetch_launches(FETCH_COUNT, vandenberg_only=False)
+
+                if no_internet:
+                    print(f"  ERROR: No internet. Showing message on displays.")
+                    for entry in lcds_16:
+                        write_lines(entry["lcd"], [
+                            pad("No Internet", 16),
+                            pad("Connection", 16),
+                        ], 16)
+                    for entry in lcds_20:
+                        write_lines(entry["lcd"], [
+                            pad("No Internet Connection", 20),
+                            pad("Check network and",     20),
+                            pad("restart if needed.",    20),
+                            pad("Retrying shortly...",   20),
+                        ], 20)
+                    time.sleep(30)
+                    last_fetch = 0
+                    continue
 
                 if retry_after is not None:
                     print(f"  WARNING: Rate limited. Counting down {retry_after}s on displays.")
@@ -622,17 +767,29 @@ def main():
                             ], 20)
                         print(f"  Rate limit countdown: {wait_str}    ", end="\r")
                         time.sleep(1)
-                    print()   # newline after countdown
+                    print()
                     last_fetch = 0
                     continue
 
-                launches   = [parse_launch(r) for r in raw_list]
-                last_fetch = time.time()
-                print(f"  OK {len(launches)} launches loaded.\n")
+                all_launches = [parse_launch(r) for r in raw_list]
+                last_fetch   = time.time()
+                print(f"  OK {len(all_launches)} launches cached locally.\n")
 
-            # Write each slot to its paired displays
+            # ── Apply filter locally from cache (no API call) ──────────────────
+            if current_filter:
+                filtered = [l for l in all_launches
+                            if any(k.lower() in l["site"].lower()
+                                   or k.lower() in l["country"].lower()
+                                   for k in VANDENBERG_KEYS)]
+            else:
+                filtered = all_launches
+
+            launches = filtered[:TOTAL_SLOTS]
+
+            # ── Write each slot to its paired displays ─────────────────────────
             mode_label = " [VAFB]" if current_filter else ""
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Updating displays{mode_label}:")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] Updating displays{mode_label} "
+                  f"({len(launches)} shown of {len(all_launches)} cached):")
 
             for entry in lcds_16:
                 slot   = entry["slot"]
@@ -647,14 +804,14 @@ def main():
             elapsed   = time.time() - last_fetch
             sleep_for = max(0, refresh_interval - elapsed)
             print(f"\n  Next refresh in {int(sleep_for)}s  (Ctrl+C to quit)\n")
-            # Sleep in 0.2s increments so a button press wakes the loop immediately
-            sleep_end = time.time() + sleep_for
+            # Sleep in 0.2s increments so a button press updates displays immediately
+            sleep_end    = time.time() + sleep_for
+            prev_filter  = current_filter
             while time.time() < sleep_end:
                 with filter_lock:
-                    filter_changed = (vandenberg_only != current_filter)
-                if filter_changed:
-                    last_fetch = 0   # trigger immediate re-fetch
-                    break
+                    new_filter = vandenberg_only
+                if new_filter != prev_filter:
+                    break   # filter changed — re-run loop to apply local filter
                 time.sleep(0.2)
 
     except KeyboardInterrupt:
