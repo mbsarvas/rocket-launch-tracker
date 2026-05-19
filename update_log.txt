@@ -1,0 +1,31 @@
+Rocket Launch Tracker — Update Log
+Created by Matthew Sarvas
+====================================
+
+Version 1.1 — May 18, 2026
+------------------------------
+- Added auto-update system that checks GitHub every 24 hours for a new version
+- When an update is found, the script downloads and applies it automatically then restarts
+- Displays show update progress and version change during the update process
+- Increased local launch cache from 3 to 20 launches
+- Filter button no longer triggers an API fetch — filtering is now done locally from cache
+- This prevents the button from consuming API rate limit requests
+- Improved button debounce with 1 second software lockout to prevent accidental double toggles
+- GPIO bouncetime increased from 300ms to 500ms for more reliable button detection
+- Garbled LCD characters on rapid button press are now prevented
+
+Version 1.0 — April 30, 2026
+------------------------------
+- Initial release
+- Displays next 3 upcoming rocket launches across 6 I2C LCD displays
+- Three 16x2 LCDs show launch site and country
+- Three 20x4 LCDs show mission name, rocket, date, and time in PST/PDT
+- Automatic PST/PDT timezone conversion
+- Fetches data from Launch Library 2 API
+- Anonymous API access with 5 minute refresh interval
+- Optional API key support for 60 second refresh interval
+- Physical button on GPIO27 to toggle between all launches and Vandenberg only
+- Live countdown timer on displays when API rate limit is reached
+- No Internet Connection message when network is unavailable
+- Automatically runs on boot via systemd
+- Automatically restarts if the script crashes
