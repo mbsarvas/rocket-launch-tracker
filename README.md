@@ -212,7 +212,7 @@ The script will automatically detect the key file on next start and switch to th
 |--------|--------|
 | Single press | Toggles between **All Locations** and **Vandenberg SFB only** |
 
-When toggled, all displays briefly show the new filter mode and then immediately fetch and display updated launch data.
+When toggled, all displays briefly show the new filter mode and then display updated launch data.
 
 ---
 
