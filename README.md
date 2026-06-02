@@ -333,7 +333,8 @@ Restarting soon
 
 **Button press is not responding**
 - Confirm the button is wired to Pin 13 (GPIO27) and Pin 9 (GND)
-- Check RPi.GPIO is installed: `python3 -c "import RPi.GPIO; print('OK')"`
+- Check lgpio is installed: `python3 -c "import lgpio; print('OK')"`
+- If not installed run: `pip install lgpio --break-system-packages`
 - Check the terminal for `[BUTTON] Filter toggled` messages when pressing
 
 **Script shows past launches**

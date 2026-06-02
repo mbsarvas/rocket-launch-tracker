@@ -78,7 +78,7 @@ LCD_20x4_CONFIGS = [
 TOTAL_SLOTS      = 3     # number of launch slots shown at once (one per display pair)
 FETCH_COUNT      = 20    # how many launches to cache locally (used for local filtering)
 API_BASE         = "https://ll.thespacedevs.com/2.0.0"
-REFRESH_INTERVAL_ANON = 300  # anonymous: 15 req/hour → 1 per 4 min (300s)
+REFRESH_INTERVAL_ANON = 360  # anonymous: 15 req/hour → 1 per 6 min (360s)
 REFRESH_INTERVAL_AUTH = 60   # authenticated: 60 req/hour → 1 per 60s
 BUTTON_PIN       = 27    # GPIO pin for the Vandenberg filter toggle button
 
