@@ -2,6 +2,13 @@ Rocket Launch Tracker — Update Log
 Created by Matthew Sarvas
 ====================================
 
+Version 1.1.3 — June 02, 2026
+------------------------------
+- Fixed GPIO edge detection error on startup caused by unclean exit from a previous run
+- Script now clears the button GPIO pin before registering it each time it starts
+- Prevents RuntimeError: Failed to add edge detection without needing a manual cleanup step
+
+
 Version 1.1.2 — May 19, 2026
 ------------------------------
 - Replaced hardcoded username paths with a single PI_USER variable

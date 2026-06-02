@@ -1,8 +1,8 @@
 """
 Rocket Launch Tracker — Multi-Display Edition
 Raspberry Pi Zero W | Python 3.13
-Version 1.1.2
-Date: May 19, 2026
+Version 1.1.3
+Date: June 02, 2026
 Created by Matthew Sarvas
 
 Display layout:
@@ -87,7 +87,7 @@ API_KEY_FILE     = f"/home/{PI_USER}/ll2_api_key.txt"
 SCRIPT_PATH      = f"/home/{PI_USER}/rocket_launch_tracker.py"
 
 # ── Auto-update settings ───────────────────────────────────────────────────────
-SCRIPT_VERSION   = "1.1.2"
+SCRIPT_VERSION   = "1.1.3"
 GITHUB_RAW_URL   = "https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/rocket_launch_tracker.py"
 UPDATE_INTERVAL  = 86400   # seconds between update checks (86400 = 24 hours)
 
@@ -604,7 +604,7 @@ def show_startup(lcds_16: list, lcds_20: list) -> None:
     for e in lcds_20:
         write_lines(e["lcd"], [
             center("Rocket Launch", 20),
-            center("Tracker v1.1.2", 20),
+            center("Tracker v1.1.3", 20),
             center("By Matthew Sarvas", 20),
             center("Fetching data...", 20),
         ], 20)
@@ -703,6 +703,15 @@ def main():
 
     if GPIO_AVAILABLE:
         GPIO.setmode(GPIO.BCM)
+        # Clean up the pin first in case a previous run didn't exit cleanly
+        try:
+            GPIO.remove_event_detect(BUTTON_PIN)
+        except Exception:
+            pass
+        try:
+            GPIO.cleanup(BUTTON_PIN)
+        except Exception:
+            pass
         GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
         # bouncetime=500ms in GPIO + 1s software debounce = robust against held presses
         GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING,
