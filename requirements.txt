@@ -1,4 +1,4 @@
 requests
 RPLCD
 smbus2
-RPi.GPIO
+lgpio

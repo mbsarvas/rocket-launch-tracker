@@ -48,11 +48,12 @@ except ImportError:
     print("[WARNING] RPLCD not installed — terminal-only mode.")
 
 try:
-    import RPi.GPIO as GPIO
+    import lgpio
     GPIO_AVAILABLE = True
+    _gpio_handle = None   # lgpio chip handle, opened in main()
 except ImportError:
     GPIO_AVAILABLE = False
-    print("[WARNING] RPi.GPIO not installed — button toggle disabled.")
+    print("[WARNING] lgpio not installed — button toggle disabled.")
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -670,6 +671,7 @@ def main():
     # ── Button setup ──────────────────────────────────────────────────────────
     vandenberg_only    = False
     filter_lock        = threading.Lock()
+    global _gpio_handle
     last_fetch         = 0
     all_launches       = []   # full cache fetched from API (up to FETCH_COUNT)
     last_update_check  = 0    # timestamp of last GitHub update check
@@ -702,23 +704,20 @@ def main():
             # No last_fetch = 0 here — filter uses cached data, no API call needed
 
     if GPIO_AVAILABLE:
-        GPIO.setmode(GPIO.BCM)
-        # Clean up the pin first in case a previous run didn't exit cleanly
         try:
-            GPIO.remove_event_detect(BUTTON_PIN)
-        except Exception:
-            pass
-        try:
-            GPIO.cleanup(BUTTON_PIN)
-        except Exception:
-            pass
-        GPIO.setup(BUTTON_PIN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        # bouncetime=500ms in GPIO + 1s software debounce = robust against held presses
-        GPIO.add_event_detect(BUTTON_PIN, GPIO.FALLING,
-                              callback=on_button_press, bouncetime=500)
-        print(f"  Button on GPIO{BUTTON_PIN} ready — press to toggle Vandenberg filter.")
+            _gpio_handle = lgpio.gpiochip_open(0)
+            lgpio.gpio_claim_input(_gpio_handle, BUTTON_PIN, lgpio.SET_PULL_UP)
+
+            # lgpio callback fires on falling edge (button press to GND)
+            def _lgpio_callback(chip, gpio, level, tick):
+                on_button_press(gpio)
+
+            lgpio.callback(_gpio_handle, BUTTON_PIN, lgpio.FALLING_EDGE, _lgpio_callback)
+            print(f"  Button on GPIO{BUTTON_PIN} ready — press to toggle Vandenberg filter.")
+        except Exception as e:
+            print(f"  [WARNING] Button setup failed: {e} — toggle disabled.")
     else:
-        print("  [WARNING] GPIO not available — button toggle disabled.")
+        print("  [WARNING] lgpio not available — button toggle disabled.")
 
     # ── Main loop ─────────────────────────────────────────────────────────────
     try:
@@ -830,8 +829,11 @@ def main():
 
     except KeyboardInterrupt:
         print("\n\n[INFO] Shutting down — clearing all displays...")
-        if GPIO_AVAILABLE:
-            GPIO.cleanup()
+        if GPIO_AVAILABLE and _gpio_handle is not None:
+            try:
+                lgpio.gpiochip_close(_gpio_handle)
+            except Exception:
+                pass
         clear_all(lcds_16, lcds_20)
         print("[INFO] Done. Goodbye!")
         sys.exit(0)

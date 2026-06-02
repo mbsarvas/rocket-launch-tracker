@@ -5,8 +5,9 @@ Created by Matthew Sarvas
 Version 1.1.3 — June 02, 2026
 ------------------------------
 - Fixed GPIO edge detection error on startup caused by unclean exit from a previous run
-- Script now clears the button GPIO pin before registering it each time it starts
-- Prevents RuntimeError: Failed to add edge detection without needing a manual cleanup step
+- Replaced RPi.GPIO with lgpio for button handling — the native GPIO library on modern Raspberry Pi OS
+- lgpio avoids the edge detection conflict that caused RuntimeError: Failed to add edge detection
+- Updated requirements.txt to replace RPi.GPIO with lgpio
 
 
 Version 1.1.2 — May 19, 2026
