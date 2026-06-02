@@ -55,6 +55,8 @@ except ImportError:
     GPIO_AVAILABLE = False
     print("[WARNING] lgpio not installed — button toggle disabled.")
 
+BUTTON_LAST_LEVEL = 1    # tracks previous pin level for edge detection via polling
+
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 # 16x2 displays → one per launch slot
@@ -707,12 +709,6 @@ def main():
         try:
             _gpio_handle = lgpio.gpiochip_open(0)
             lgpio.gpio_claim_input(_gpio_handle, BUTTON_PIN, lgpio.SET_PULL_UP)
-
-            # lgpio callback fires on falling edge (button press to GND)
-            def _lgpio_callback(chip, gpio, level, tick):
-                on_button_press(gpio)
-
-            lgpio.callback(_gpio_handle, BUTTON_PIN, lgpio.FALLING_EDGE, _lgpio_callback)
             print(f"  Button on GPIO{BUTTON_PIN} ready — press to toggle Vandenberg filter.")
         except Exception as e:
             print(f"  [WARNING] Button setup failed: {e} — toggle disabled.")
@@ -817,15 +813,26 @@ def main():
             elapsed   = time.time() - last_fetch
             sleep_for = max(0, refresh_interval - elapsed)
             print(f"\n  Next refresh in {int(sleep_for)}s  (Ctrl+C to quit)\n")
-            # Sleep in 0.2s increments so a button press updates displays immediately
+            # Poll every 0.1s — checks both filter change and button state
             sleep_end    = time.time() + sleep_for
             prev_filter  = current_filter
+            global BUTTON_LAST_LEVEL
             while time.time() < sleep_end:
+                # Poll button via lgpio
+                if GPIO_AVAILABLE and _gpio_handle is not None:
+                    try:
+                        level = lgpio.gpio_read(_gpio_handle, BUTTON_PIN)
+                        if level == 0 and BUTTON_LAST_LEVEL == 1:
+                            # Falling edge detected — treat as button press
+                            on_button_press(BUTTON_PIN)
+                        BUTTON_LAST_LEVEL = level
+                    except Exception:
+                        pass
                 with filter_lock:
                     new_filter = vandenberg_only
                 if new_filter != prev_filter:
                     break   # filter changed — re-run loop to apply local filter
-                time.sleep(0.2)
+                time.sleep(0.1)
 
     except KeyboardInterrupt:
         print("\n\n[INFO] Shutting down — clearing all displays...")
