@@ -178,6 +178,8 @@ WantedBy=multi-user.target
 ```
 > Replace `YOUR_USERNAME` with your Pi's username (e.g. `pi`, `mbsarvas`). You can check it by running `whoami` in the terminal.
 
+Save and exit with `Ctrl+X`, then `Y`, then `Enter`.
+
 ### 2. Enable and start the service
 
 ```bash
@@ -193,6 +195,14 @@ sudo systemctl start rockettracker
 sudo systemctl status rockettracker
 ```
 > You may be prompted for your password.
+
+### 4. Reboot to confirm autostart
+
+```bash
+sudo reboot
+```
+
+After rebooting the script will start automatically and the displays should come to life within a minute or so as the Pi boots and connects to the network.
 
 ### Useful service commands
 
