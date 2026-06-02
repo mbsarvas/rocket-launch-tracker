@@ -6,6 +6,12 @@ A Raspberry Pi Zero W project that displays upcoming rocket launches in real tim
 
 ---
 
+## Before You Start
+
+If you use **Raspberry Pi Imager** to flash your SD card, it will prompt you to apply OS customisation settings before writing — use this to pre-configure your username, password, Wi-Fi, and SSH. A password is required for the initial setup steps in this guide — once setup is complete the script runs hands-free on every boot.
+
+---
+
 ## Features
 
 - Displays the next 3 upcoming rocket launches simultaneously
@@ -80,12 +86,6 @@ Each numbered slot pairs one 16x2 with one 20x4 to show the same launch:
 
 ## Installation
 
-> **Before you begin:** Open `rocket_launch_tracker.py` and set the `PI_USER` variable at the top to match your Pi username:
-> ```python
-> PI_USER = "pi"   # change this to your username
-> ```
-> You can find your username by running `whoami` in the terminal.
-
 ### 1. Enable I2C on the Pi
 
 ```bash
@@ -93,6 +93,7 @@ sudo raspi-config
 # Interface Options → I2C → Enable
 sudo reboot
 ```
+> You may be prompted for your password.
 
 ### 2. Verify displays are detected
 
@@ -100,24 +101,44 @@ sudo reboot
 sudo apt install i2c-tools
 i2cdetect -y 1
 ```
+> You may be prompted for your password.
 
 You should see addresses `0x22` through `0x27` appear in the grid.
 
-### 3. Clone the repository
+### 3. Download the script
 
 ```bash
 cd /home/YOUR_USERNAME
-git clone https://github.com/mbsarvas/rocket-launch-tracker.git
+mkdir rocket-launch-tracker
+cd rocket-launch-tracker
+wget https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/rocket_launch_tracker.py
+wget https://raw.githubusercontent.com/mbsarvas/rocket-launch-tracker/main/requirements.txt
 ```
 > Replace `YOUR_USERNAME` with your Pi's username. You can check it by running `whoami`.
 
-### 4. Install dependencies
+### 4. Set your username in the script
 
 ```bash
+nano /home/YOUR_USERNAME/rocket-launch-tracker/rocket_launch_tracker.py
+```
+> You should still be inside the `rocket-launch-tracker` folder from the previous step. If not, run `cd /home/YOUR_USERNAME/rocket-launch-tracker` first.
+
+Find this line near the top and change `"pi"` to match your Pi username:
+
+```python
+PI_USER = "pi"   # change this to your username e.g. "mbsarvas"
+```
+
+Save and exit with `Ctrl+X`, then `Y`, then `Enter`. You can find your username by running `whoami`.
+
+### 5. Install dependencies
+
+```bash
+cd /home/YOUR_USERNAME/rocket-launch-tracker
 pip install -r requirements.txt --break-system-packages
 ```
 
-### 5. Test the script
+### 6. Test the script
 
 ```bash
 python3 rocket_launch_tracker.py
@@ -134,6 +155,7 @@ All six displays should initialize and begin showing launch data within a few se
 ```bash
 sudo nano /etc/systemd/system/rockettracker.service
 ```
+> You may be prompted for your password.
 
 Paste the following (update the username and path if needed):
 
@@ -163,12 +185,14 @@ sudo systemctl daemon-reload
 sudo systemctl enable rockettracker
 sudo systemctl start rockettracker
 ```
+> You may be prompted for your password.
 
 ### 3. Check it is running
 
 ```bash
 sudo systemctl status rockettracker
 ```
+> You may be prompted for your password.
 
 ### Useful service commands
 
