@@ -196,6 +196,8 @@ sudo systemctl status rockettracker
 ```
 > You may be prompted for your password.
 
+You should see `Active: active (running)` in the output. If it shows `failed` or `inactive` check the logs with `sudo journalctl -u rockettracker -f` for more details.
+
 ### 4. Reboot to confirm autostart
 
 ```bash
