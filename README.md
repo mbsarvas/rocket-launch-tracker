@@ -168,8 +168,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=YOUR_USERNAME
-WorkingDirectory=/home/YOUR_USERNAME
-ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/rocket_launch_tracker.py
+WorkingDirectory=/home/YOUR_USERNAME/rocket-launch-tracker
+ExecStart=/usr/bin/python3 /home/YOUR_USERNAME/rocket-launch-tracker/rocket_launch_tracker.py
 Restart=always
 RestartSec=10
 
