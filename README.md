@@ -20,7 +20,7 @@ If you use **Raspberry Pi Imager** to flash your SD card, it will prompt you to 
 - Automatically converts launch times to PST or PDT
 - Physical button to toggle between all launches and Vandenberg SFB launches only
 - Live countdown timer on displays when the API rate limit is reached
-- Auto-refreshes every 60 seconds (with API key) or 5 minutes (anonymous)
+- Auto-refreshes every 60 seconds (with API key) or 6 minutes (anonymous)
 - Automatically runs on boot via systemd
 - Falls back to anonymous API access if the API key is missing or invalid
 
@@ -226,7 +226,7 @@ sudo systemctl disable rockettracker
 
 ## API Key (Optional)
 
-By default the script uses anonymous access to the Launch Library 2 API, which allows 15 requests per hour (one refresh every 5 minutes).
+By default the script uses anonymous access to the Launch Library 2 API, which allows 15 requests per hour. The script refreshes every 6 minutes (10 requests per hour) to stay safely within this limit.
 
 To get a higher rate limit (60 requests/hour, one refresh per minute):
 
