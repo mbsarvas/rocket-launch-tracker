@@ -1,6 +1,6 @@
 # 🚀 Rocket Launch Tracker
 
-A Raspberry Pi Zero W project that displays upcoming rocket launches in real time across six I2C LCD displays, powered by the [Launch Library 2 API](https://thespacedevs.com/llapi).
+A Raspberry Pi Zero 2 W project that displays upcoming rocket launches in real time across six I2C LCD displays, powered by the [Launch Library 2 API](https://thespacedevs.com/llapi).
 
 **Created by Matthew Sarvas**
 
@@ -28,7 +28,7 @@ If you use **Raspberry Pi Imager** to flash your SD card, it will prompt you to 
 
 ## Hardware
 
-- Raspberry Pi Zero W
+- Raspberry Pi Zero 2 W
 - 3x 16x2 I2C LCD displays (PCF8574 backpack)
 - 3x 20x4 I2C LCD displays (PCF8574 backpack)
 - 1x momentary push button

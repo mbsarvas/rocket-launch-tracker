@@ -1,6 +1,6 @@
 """
 Rocket Launch Tracker — Multi-Display Edition
-Raspberry Pi Zero W | Python 3.13
+Raspberry Pi Zero 2 W | Python 3.13
 Version 1.1.3
 Date: June 02, 2026
 Created by Matthew Sarvas
